@@ -18,8 +18,8 @@ class TouchiEvents:
             "genius_kick": 0.03,        # 3% 概率遇到天才少年被踢死
             "genius_fine": 0.03,        # 3% 概率排到天才少年被追缴
             "noob_teammate": 0.03,      # 3% 概率遇到唐氏队友
-            "hunted_escape": 0.03,      # 3% 概率被追杀丢包撤离
-            "passerby_mouse": 0.03,     # 3% 概率遇到路人鼠鼠
+            "hunted_escape": 0,      # 3% 概率被追杀丢包撤离
+            "passerby_mouse": 0,     # 3% 概率遇到路人鼠鼠
             "system_compensation": 0.03  # 3% 概率触发系统补偿局
         }
         
