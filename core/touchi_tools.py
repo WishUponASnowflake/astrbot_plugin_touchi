@@ -743,7 +743,7 @@ class TouchiTools:
                 base_message = f"{message}\n总价值: {final_value:,}"
                 
                 
-                # 检查是否触发洲了个洲游戏（2%概率）
+                # 检查是否触发洲了个洲游戏
                 zhou_triggered = False
                 zhou_message = ""
                 if random.random() < 0.02:  # 2%概率
@@ -788,12 +788,29 @@ class TouchiTools:
                 'has_event': event_triggered  # 标记是否有事件触发
             }
             else:
-                self._delayed_result = {
-                    'success': False,
-                    'message': "🎁 图片生成失败！",
-                    'image_path': None,
-                    'has_event': False
-                }
+               # 无事件：自己拼消息
+               prefix = "鼠鼠猛攻获得了" if menggong_mode else "鼠鼠偷吃到了"
+               final_message = f"{prefix}\n总价值: {final_value:,}"
+
+               # 洲了个洲彩蛋（2%概率）
+               if random.random() < 0.02:
+                   final_message += "\n\n🎮 特殊事件触发！洲了个洲游戏开始！\n💰 游戏获胜可获得100万哈夫币奖励！\n📝 使用 '洲了个洲' 指令开始游戏"
+                   try:
+                       async with aiosqlite.connect(self.db_path) as db:
+                           await db.execute(
+                               "INSERT INTO zhou_trigger_events (user_id, trigger_time) VALUES (?, ?)",
+                               (user_id, int(time.time()))
+                           )
+                           await db.commit()
+                   except Exception as e:
+                       logger.error(f"记录洲游戏触发事件时出错: {e}")
+
+               self._delayed_result = {
+                   'success': True,
+                   'message': final_message,
+                   'image_path': safe_image_path if safe_image_path and os.path.exists(safe_image_path) else None,
+                   'has_event': False
+               }
                 
         except Exception as e:
             logger.error(f"执行偷吃代码或发送结果时出错: {e}")
