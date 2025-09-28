@@ -14,13 +14,13 @@ class TouchiEvents:
         
         # 事件概率配置
         self.event_probabilities = {
-            "broken_liutao": 0.03,      # 3% 概率获得残缺刘涛
-            "genius_kick": 0.03,        # 3% 概率遇到天才少年被踢死
-            "genius_fine": 0.03,        # 3% 概率排到天才少年被追缴
-            "noob_teammate": 0.03,      # 3% 概率遇到唐氏队友
-            "hunted_escape": 0,      # 3% 概率被追杀丢包撤离
-            "passerby_mouse": 0,     # 3% 概率遇到路人鼠鼠
-            "system_compensation": 0.03  # 3% 概率触发系统补偿局
+            "broken_liutao": 0.04,      #  概率获得残缺刘涛
+            "genius_kick": 0.04,        #  概率遇到天才少年被踢死
+            "genius_fine": 0.04,        #  概率排到天才少年被追缴
+            "noob_teammate": 0.04,      #  概率遇到唐氏队友
+            "hunted_escape": 0.04,      #  概率被追杀丢包撤离
+            "passerby_mouse": 0.04,     #  概率遇到路人鼠鼠
+            "system_compensation": 0.04  #  概率触发系统补偿局
         }
         
         # 事件表情映射配置
@@ -91,21 +91,21 @@ class TouchiEvents:
         if rand < cumulative_prob:
             result = await self._handle_broken_liutao_event(event, user_id, placed_items, total_value)
             # result 包含: (triggered, type, items, value, message, emoji_path)
-            return result[0], result[1], result[2], result[3], result[4], None, None, result[5]  # 添加冷却倍率和金色物品路径
+            return result[0], result[1], result[2], result[3], result[4], None, None, result[5]
         
         # 事件2: 遇到天才少年被踢死 
         cumulative_prob += self.event_probabilities["genius_kick"]
         if rand < cumulative_prob:
             result = await self._handle_genius_kick_event(event, user_id, placed_items, total_value)
             # result 包含: (triggered, type, items, value, message, emoji_path)
-            return result[0], result[1], result[2], result[3], result[4], None, None, result[5]  # 添加冷却倍率和金色物品路径
+            return result[0], result[1], result[2], result[3], result[4], None, None, result[5]
         
         # 事件3: 排到天才少年被追缴 
         cumulative_prob += self.event_probabilities["genius_fine"]
         if rand < cumulative_prob:
             result = await self._handle_genius_fine_event(event, user_id, placed_items, total_value)
             # result 包含: (triggered, type, items, value, message, emoji_path)
-            return result[0], result[1], result[2], result[3], result[4], None, None, result[5]  # 添加冷却倍率和金色物品路径
+            return result[0], result[1], result[2], result[3], result[4], None, None, result[5]
         
         # 事件4: 遇到唐氏队友 
         cumulative_prob += self.event_probabilities["noob_teammate"]
@@ -119,17 +119,16 @@ class TouchiEvents:
         if rand < cumulative_prob:
             result = await self._handle_hunted_escape_event(event, user_id, placed_items, total_value)
             # result 包含: (triggered, type, items, value, message, emoji_path)
-            return result[0], result[1], result[2], result[3], result[4], None, None, result[5]  # 添加冷却倍率和金色物品路径
+            return result[0], result[1], result[2], result[3], result[4], None, None, result[5]
         
         # 事件6: 遇到路人鼠鼠 
         cumulative_prob += self.event_probabilities["passerby_mouse"]
         if rand < cumulative_prob:
             result = await self._handle_passerby_mouse_event(event, user_id, placed_items, total_value)
-            if len(result) == 7:  # 路人鼠鼠事件返回7个值（包含金色物品路径和表情路径）
-                return result[0], result[1], result[2], result[3], result[4], None, result[5], result[6]  # 事件触发、类型、物品、价值、消息、冷却倍率、金色物品路径、表情路径
+            if len(result) == 7:  # 路人鼠鼠事件返回7个值
+                return result[0], result[1], result[2], result[3], result[4], None, result[5], result[6]
             else:
-                # result 包含: (triggered, type, items, value, message, emoji_path)
-                return result[0], result[1], result[2], result[3], result[4], None, None, result[5]  # 添加冷却倍率和金色物品路径
+                return result[0], result[1], result[2], result[3], result[4], None, None, result[5]
         
         # 事件7: 系统补偿局 
         cumulative_prob += self.event_probabilities["system_compensation"]
@@ -189,8 +188,6 @@ class TouchiEvents:
             )
             
             # 返回原物品用于展示，但总价值设为0（因为不计入数据库）
-            # 注意：这里不清空用户现有仓库，只是本次偷吃的物品不计入
-            # 获取表情路径
             emoji_path = self.get_event_emoji_path("genius_kick")
             return True, "genius_kick", placed_items, 0, event_message, emoji_path
             
@@ -245,7 +242,6 @@ class TouchiEvents:
                 "🤦 特殊事件触发！\n"
                 "👥 你遇到了唐氏队友，撤离时间翻倍！\n"
                 "⏰ 下次偷吃冷却时间增加一倍！"
-                
             )
             
             # 获取表情路径
@@ -260,7 +256,6 @@ class TouchiEvents:
         """处理被追杀丢包撤离事件"""
         try:
             # 不删除数据库中的物品，只是不保留本次大物品记录到库中
-            # 以前的物品还是要保留的
             allowed_sizes = ['1x1', '1x2', '2x1', '1x3', '3x1']
             
             # 过滤当前偷吃的物品，只保留小尺寸物品
@@ -292,7 +287,6 @@ class TouchiEvents:
                 "🏃 特殊事件触发！\n"
                 "🔫 你被追杀到了丢包撤离点！\n"
                 "📦 只能保留小尺寸物品！"
-
             )
             
             # 获取表情路径
@@ -358,13 +352,12 @@ class TouchiEvents:
                     "🐭 特殊事件触发！\n"
                     "👋 你遇到了路人鼠鼠，你们打了暗号！\n"
                     f"🎁 ta送给了你金色物品"
-                   
                 )
                 
                 # 获取表情路径
                 emoji_path = self.get_event_emoji_path("passerby_mouse")
                 # 返回原始物品和价值，金色物品将在重新生成时添加
-                return True, "passerby_mouse", placed_items, total_value, event_message, selected_gold_item, emoji_path  # 返回选中的金色物品路径和表情路径
+                return True, "passerby_mouse", placed_items, total_value, event_message, selected_gold_item, emoji_path
             else:
                 # 如果没有金色物品，返回正常结果
                 return False, None, placed_items, total_value, None, None, None
@@ -392,8 +385,6 @@ class TouchiEvents:
             print(f"处理系统补偿局事件时出错: {e}")
             return False, None, placed_items, total_value, None, None
      
-
-    
     def get_event_statistics(self):
         """获取事件概率统计信息"""
         total_prob = sum(self.event_probabilities.values())
