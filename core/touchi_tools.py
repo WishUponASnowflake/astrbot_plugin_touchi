@@ -328,29 +328,37 @@ class TouchiTools:
             # 等待后台任务完成
             await task
             
+            # 在get_touchi方法的最后部分，修改消息发送逻辑：
+
             # 检查是否有延迟结果需要发送
             if hasattr(self, '_delayed_result') and self._delayed_result:
                 result = self._delayed_result
                 self._delayed_result = None  # 清除结果
                 
+                # 如果有事件触发，先发送事件消息
+                if hasattr(self, '_delayed_event_message') and self._delayed_event_message:
+                    yield event.chain_result(self._delayed_event_message)
+                    self._delayed_event_message = None  # 清除事件消息
+    
+                # 发送偷吃结果
                 if result['success']:
                     if result['image_path']:
                         chain = [
                             At(qq=event.get_sender_id()),
-                            Plain(f"{result['message']}"),
+                            Plain(f"\n{result['message']}"),
                             Image.fromFileSystem(result['image_path']),
                         ]
                         yield event.chain_result(chain)
                     else:
                         chain = [
                             At(qq=event.get_sender_id()),
-                            Plain(result['message'])
+                            Plain(f"\n{result['message']}")
                         ]
                         yield event.chain_result(chain)
                 else:
                     chain = [
                         At(qq=event.get_sender_id()),
-                        Plain(result['message'])
+                        Plain(f"\n{result['message']}")
                     ]
                     yield event.chain_result(chain)
 
@@ -394,9 +402,22 @@ class TouchiTools:
                 )) for item in placed_items)
                 
                 # 检查概率事件
-                event_triggered, event_type, final_items, final_value, event_message, cooldown_multiplier, golden_item_path = await self.events.check_random_events(
-                    event, user_id, placed_items, total_value
-                )
+                event_triggered, event_type, final_items, final_value, event_message, cooldown_multiplier, golden_item_path, event_emoji_path = await self.events.check_random_events(
+                event, user_id, placed_items, total_value
+            )
+            
+            # 如果触发事件，先发送事件消息
+            if event_triggered and event_message:
+                # 发送事件消息（文字+表情）
+                event_chain = []
+                event_chain.append(At(qq=event.get_sender_id()))
+                event_chain.append(Plain(f"\n{event_message}"))
+                
+                if event_emoji_path and os.path.exists(event_emoji_path):
+                    event_chain.append(Image.fromFileSystem(event_emoji_path))
+                
+                # 保存事件消息到延迟结果
+                self._delayed_event_message = event_chain
                 
                 # 如果触发系统补偿局事件，需要重新生成图片使用六套模式概率
                 if event_triggered and event_type == "system_compensation":
@@ -419,15 +440,15 @@ class TouchiTools:
                         from PIL import Image
                         import os
                         from datetime import datetime
-                        
+        
                         # 加载所有可用物品
                         all_items = load_items()
                         if not all_items:
                             return None, []
-                        
+        
                         # 创建包含过滤后物品的特定物品列表
                         specific_items = []
-                        
+        
                         # 添加过滤后的物品
                         for filtered_item in final_items:
                             item_name = filtered_item["item"]["base_name"]
@@ -436,33 +457,36 @@ class TouchiTools:
                                 if item["base_name"] == item_name and item["level"] == item_level:
                                     specific_items.append(item)
                                     break
-                        
+        
                         # 使用当前格子大小重新布局
                         from .touchi import place_items
                         placed_items_new = place_items(specific_items, used_grid_size, used_grid_size, used_grid_size)
                         
-                        # 生成图片
-                        safe_frames = render_safe_layout_gif(placed_items_new, 0, 0, used_grid_size, used_grid_size, used_grid_size)
-                        if not safe_frames:
+                        # 生成图片 - 修复返回值接收
+                        result = render_safe_layout_gif(placed_items_new, 0, 0, used_grid_size, used_grid_size, used_grid_size)
+                        if not result or not result[0]:
                             return None, []
-                        
+
+                        # 正确接收返回值：frames 和 total_frames
+                        safe_frames, total_frames = result
+        
                         # 加载表情图片
                         expressions = load_expressions()
                         if not expressions:
                             return None, []
-                        
+        
                         highest_level = get_highest_level(placed_items_new)
                         eating_path = expressions.get("eating")
                         expression_map = {"gold": "happy", "red": "eat"}
                         final_expression = expression_map.get(highest_level, "cry")
                         final_expr_path = expressions.get(final_expression)
-                        
+        
                         if not eating_path or not final_expr_path:
                             return None, []
-                        
+        
                         # 生成最终图片
                         expression_size = used_grid_size * 100
-                        
+        
                         # 加载eating.gif帧
                         eating_frames = []
                         with Image.open(eating_path) as eating_gif:
@@ -471,7 +495,7 @@ class TouchiTools:
                                 eating_frame = eating_gif.convert("RGBA")
                                 eating_frame = eating_frame.resize((expression_size, expression_size), Image.LANCZOS)
                                 eating_frames.append(eating_frame.copy())
-                        
+        
                         # 加载最终表情
                         with Image.open(final_expr_path).convert("RGBA") as final_expr_img:
                             final_expr_img = final_expr_img.resize((expression_size, expression_size), Image.LANCZOS)
@@ -479,6 +503,13 @@ class TouchiTools:
                             # 生成最终帧
                             final_frames = []
                             for frame_idx, safe_frame in enumerate(safe_frames):
+                                # 修复：检查 safe_frame 是否是列表，如果是则取第一帧
+                                if isinstance(safe_frame, list):
+                                    if safe_frame:
+                                        safe_frame = safe_frame[0]
+                                    else:
+                                        continue
+                
                                 final_img = Image.new("RGB", (expression_size + safe_frame.width, safe_frame.height), (50, 50, 50))
                                 
                                 if frame_idx == 0:
@@ -486,26 +517,26 @@ class TouchiTools:
                                 else:
                                     eating_frame_idx = (frame_idx - 1) % len(eating_frames)
                                     current_expr = eating_frames[eating_frame_idx]
-                                
+                
                                 if current_expr.mode == 'RGBA':
                                     final_img.paste(current_expr, (0, 0), current_expr)
                                 else:
                                     final_img.paste(current_expr, (0, 0))
-                                
+                
                                 final_img.paste(safe_frame, (expression_size, 0))
-                                
+                
                                 # 应用缩放
                                 new_width = int(final_img.width * 0.7)
                                 new_height = int(final_img.height * 0.7)
                                 final_img = final_img.resize((new_width, new_height), Image.LANCZOS)
-                                
+                
                                 final_frames.append(final_img)
-                        
+        
                         # 保存GIF
                         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                         from .touchi import output_dir
                         output_path = os.path.join(output_dir, f"safe_{timestamp}.gif")
-                        
+        
                         if final_frames:
                             final_frames[0].save(
                                 output_path,
@@ -514,11 +545,17 @@ class TouchiTools:
                                 duration=150,
                                 loop=0
                             )
-                        
-                        return output_path, placed_items_new
-                    
-                    safe_image_path, placed_items = await loop.run_in_executor(None, generate_with_filtered_items)
-                
+                            return output_path, placed_items_new
+                        else:
+                            return None, placed_items_new
+    
+                    try:
+                        safe_image_path, placed_items = await loop.run_in_executor(None, generate_with_filtered_items)
+                    except Exception as e:
+                        logger.error(f"重新生成丢包撤离事件图片时出错: {e}")
+                        # 如果重新生成失败，使用原始图片
+                        pass
+
                 # 如果路人鼠鼠事件触发且有金色物品，添加金色物品并重新生成图片
                 if golden_item_path and event_type == "passerby_mouse":
                     # 添加金色物品到物品列表开头，使用正确的格式
@@ -541,22 +578,22 @@ class TouchiTools:
                         from PIL import Image
                         import os
                         from datetime import datetime
-                        
+        
                         # 加载所有可用物品
                         all_items = load_items()
                         if not all_items:
                             return None, []
-                        
+        
                         # 创建包含金色物品的特定物品列表
                         specific_items = []
-                        
+        
                         # 添加金色物品
                         golden_item_name = os.path.splitext(os.path.basename(golden_item_path))[0]
                         for item in all_items:
                             if item["base_name"] == golden_item_name and item["level"] == "gold":
                                 specific_items.append(item)
                                 break
-                        
+        
                         # 添加其他已放置的物品
                         for placed_item in placed_items:
                             item_name = placed_item["item"]["base_name"]
@@ -565,33 +602,36 @@ class TouchiTools:
                                 if item["base_name"] == item_name and item["level"] == item_level:
                                     specific_items.append(item)
                                     break
-                        
+        
                         # 使用最大格子(7x7)重新布局
                         from .touchi import place_items
                         placed_items_new = place_items(specific_items, 7, 7, 7)
-                        
+        
                         # 生成图片
-                        safe_frames = render_safe_layout_gif(placed_items_new, 0, 0, 7, 7, 7)
-                        if not safe_frames:
+                        result = render_safe_layout_gif(placed_items_new, 0, 0, 7, 7, 7)
+                        if not result or not result[0]:
                             return None, []
-                        
+
+                        # 正确接收返回值：frames 和 total_frames
+                        safe_frames, total_frames = result
+        
                         # 加载表情图片
                         expressions = load_expressions()
                         if not expressions:
                             return None, []
-                        
+        
                         highest_level = get_highest_level(placed_items_new)
                         eating_path = expressions.get("eating")
                         expression_map = {"gold": "happy", "red": "eat"}
                         final_expression = expression_map.get(highest_level, "cry")
                         final_expr_path = expressions.get(final_expression)
-                        
+        
                         if not eating_path or not final_expr_path:
                             return None, []
-                        
+        
                         # 生成最终图片
                         expression_size = 7 * 100  # 7x7格子
-                        
+        
                         # 加载eating.gif帧
                         eating_frames = []
                         with Image.open(eating_path) as eating_gif:
@@ -600,7 +640,7 @@ class TouchiTools:
                                 eating_frame = eating_gif.convert("RGBA")
                                 eating_frame = eating_frame.resize((expression_size, expression_size), Image.LANCZOS)
                                 eating_frames.append(eating_frame.copy())
-                        
+                       
                         # 加载最终表情
                         with Image.open(final_expr_path).convert("RGBA") as final_expr_img:
                             final_expr_img = final_expr_img.resize((expression_size, expression_size), Image.LANCZOS)
@@ -608,6 +648,13 @@ class TouchiTools:
                             # 生成最终帧
                             final_frames = []
                             for frame_idx, safe_frame in enumerate(safe_frames):
+                                # 修复：检查 safe_frame 是否是列表，如果是则取第一帧
+                                if isinstance(safe_frame, list):
+                                    if safe_frame:
+                                        safe_frame = safe_frame[0]
+                                    else:
+                                        continue
+                
                                 final_img = Image.new("RGB", (expression_size + safe_frame.width, safe_frame.height), (50, 50, 50))
                                 
                                 if frame_idx == 0:
@@ -615,7 +662,7 @@ class TouchiTools:
                                 else:
                                     eating_frame_idx = (frame_idx - 1) % len(eating_frames)
                                     current_expr = eating_frames[eating_frame_idx]
-                                
+                
                                 if current_expr.mode == 'RGBA':
                                     final_img.paste(current_expr, (0, 0), current_expr)
                                 else:
@@ -629,7 +676,7 @@ class TouchiTools:
                                 final_img = final_img.resize((new_width, new_height), Image.LANCZOS)
                                 
                                 final_frames.append(final_img)
-                        
+        
                         # 保存GIF
                         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                         from .touchi import output_dir
@@ -643,11 +690,17 @@ class TouchiTools:
                                 duration=150,
                                 loop=0
                             )
-                        
-                        return output_path, placed_items_new
-                    
-                    safe_image_path, placed_items = await loop.run_in_executor(None, generate_with_specific_items)
-                    
+                            return output_path, placed_items_new
+                        else:
+                            return None, placed_items_new
+    
+                    try:
+                        safe_image_path, placed_items = await loop.run_in_executor(None, generate_with_specific_items)
+                    except Exception as e:
+                        logger.error(f"重新生成路人鼠鼠事件图片时出错: {e}")
+                        # 如果重新生成失败，使用原始图片
+                        pass
+    
                     # 重新计算总价值（包含金色物品）
                     final_value = 0
                     for item in final_items:
@@ -689,9 +742,6 @@ class TouchiTools:
                 message = "鼠鼠偷吃到了" if not menggong_mode else "鼠鼠猛攻获得了"
                 base_message = f"{message}\n总价值: {final_value:,}"
                 
-                # 如果有事件触发，添加事件消息
-                if event_triggered and event_message:
-                    base_message += f"\n\n{event_message}"
                 
                 # 检查是否触发洲了个洲游戏（2%概率）
                 zhou_triggered = False
@@ -728,27 +778,30 @@ class TouchiTools:
                     final_message += zhou_message
                 
                 # 发送消息和图片 - 后台任务无法使用yield，需要通过其他方式发送
-                # 这里我们将结果保存，让调用方处理发送
+                # 将结果保存，让调用方处理发送
                 self._delayed_result = {
-                    'success': True,
-                    'message': final_message,
-                    'image_path': safe_image_path if safe_image_path and os.path.exists(safe_image_path) else None,
-                    'combined': True,  # 标记需要合并发送
-                    'zhou_triggered': zhou_triggered  # 标记是否触发了洲游戏
-                }
+                'success': True,
+                'message': final_message,
+                'image_path': safe_image_path if safe_image_path and os.path.exists(safe_image_path) else None,
+                'combined': True,
+                'zhou_triggered': zhou_triggered,
+                'has_event': event_triggered  # 标记是否有事件触发
+            }
             else:
                 self._delayed_result = {
                     'success': False,
                     'message': "🎁 图片生成失败！",
-                    'image_path': None
+                    'image_path': None,
+                    'has_event': False
                 }
                 
         except Exception as e:
             logger.error(f"执行偷吃代码或发送结果时出错: {e}")
             self._delayed_result = {
-                'success': False,
-                'message': "🎁打开时出了点问题！",
-                'image_path': None
+            'success': False,
+            'message': "🎁打开时出了点问题！",
+            'image_path': None,
+            'has_event': False
             }
 
     async def menggong_attack(self, event, custom_duration=None):
