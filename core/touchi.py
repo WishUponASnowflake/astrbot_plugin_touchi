@@ -85,15 +85,15 @@ ITEM_VALUES = {
     "blue_2x2_luju": 45787, "blue_2x2_pozhangchui": 27709, "blue_2x2_xianshiping": 26269,
     "gold_1x1_bayinhe": 58583, "gold_1x1_cangmitong": 56992, "gold_1x1_duya": 60690,
     "gold_1x1_haixainzhou": 57636, "gold_1x1_yingyangzhou": 58814, "gold_1x1_zhenzhu": 56039,
-    "gold_1x2_weixingdianhua": 84020, "gold_1x2_xinzangzhijia": 75914, "gold_2x1_jinzhiguiguan": 84762,
+    "gold_1x2_weixingdianhua": 84020, "gold_1x2_xinzangzhijia": 75914, "gold_2x1_jinzhiguiguan": 84762,"gold_1x1_jianyujinka": 3032899,"gold_1x1_chuchanyi": 57756,
     "gold_2x2_baogao": 434467, "purple_2x1_shengka": 61262, "purple_2x2_kafeizu": 38672,
     "purple_2x2_luyouqi": 93429, "red_1x1_kexiaoquan": 0, "red_1x1_naojishuju": 1920324,
-    "red_1x1_yuzijiang": 179307, "red_2x3_fuli": 0, "red_3x3_ecmo": 2331756
+    "red_1x1_yuzijiang": 179307, "red_3x4_fuli": 0,"red_1x1_jianyuka": 6124442,"red_1x2_amiya": 0, "red_2X1_ditu4_296185": 296185,"red_3x3_ecmo": 2331756
 }
 
 # 稀有物品列表 - 概率为原来的三分之一
 RARE_ITEMS = {
-    "gold_1x1_1", "gold_1x1_2", "red_1x1_1", "red_1x1_2", "red_1x1_3",  "red_3x3_ecmo",
+    "gold_1x1_1", "gold_1x1_2", "red_1x1_1", "red_1x1_2", "red_1x1_3",  "red_3x3_ecmo","gold_1x1_jianyujinka","red_1x2_amiya","red_1x1_jianyuka",
     "red_3x3_huxiji", "gold_3x2_bendishoushi", "purple_1x1_2", "purple_1x1_4","purple_1x1_3", "purple_1x1_1","red_4x3_cipanzhenlie","red_4x3_dongdidianchi","red_3x4_daopian","red_3x3_wanjinleiguan","red_3x3_tanke"
 }
 
